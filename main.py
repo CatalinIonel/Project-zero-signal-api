@@ -1,24 +1,24 @@
-from fastapi import FastAPI, Request, HTTPException
-from pydantic import BaseModel
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+import json
 
 app = FastAPI()
-latest_signal = {}
-
-class Signal(BaseModel):
-    symbol: str
-    action: str
-    lot_size: float
-    sl: float
-    tp: float
 
 @app.post("/signal")
-async def receive_signal(signal: Signal):
-    global latest_signal
-    latest_signal = signal.dict()
-    return {"status": "received", "signal": latest_signal}
+async def receive_signal(request: Request):
+    try:
+        signal = await request.json()
+        with open("latest_signal.json", "w") as f:
+            json.dump(signal, f)
+        return {"status": "received", "signal": signal}
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
 
-@app.get("/latest")
-async def get_latest_signal():
-    if not latest_signal:
-        raise HTTPException(status_code=404, detail="No signal available")
-    return latest_signal
+@app.get("/signal")
+def get_signal():
+    try:
+        with open("latest_signal.json", "r") as f:
+            signal = json.load(f)
+        return signal
+    except FileNotFoundError:
+        return JSONResponse(status_code=404, content={"error": "No signal available"})
