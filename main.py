@@ -1,14 +1,17 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 import json
+import os
 
 app = FastAPI()
+
+SIGNAL_FILE = "latest_signal.json"
 
 @app.post("/signal")
 async def receive_signal(request: Request):
     try:
         signal = await request.json()
-        with open("latest_signal.json", "w") as f:
+        with open(SIGNAL_FILE, "w") as f:
             json.dump(signal, f)
         return {"status": "received", "signal": signal}
     except Exception as e:
@@ -16,9 +19,12 @@ async def receive_signal(request: Request):
 
 @app.get("/signal")
 def get_signal():
-    try:
-        with open("latest_signal.json", "r") as f:
-            signal = json.load(f)
-        return signal
-    except FileNotFoundError:
+    if os.path.exists(SIGNAL_FILE):
+        try:
+            with open(SIGNAL_FILE, "r") as f:
+                signal = json.load(f)
+            return {"status": "ok", "signal": signal}
+        except Exception as e:
+            return JSONResponse(status_code=500, content={"error": f"Failed to read signal: {str(e)}"})
+    else:
         return JSONResponse(status_code=404, content={"error": "No signal available"})
